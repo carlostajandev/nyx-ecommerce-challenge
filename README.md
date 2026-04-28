@@ -2,6 +2,8 @@
 
 > **Demo en vivo:** [https://nyx-ecommerce-challenge.vercel.app](https://nyx-ecommerce-challenge.vercel.app)
 
+![Catálogo de productos con filtros y búsqueda](./docs/catalog.png)
+
 Mini eCommerce construido como prueba técnica para Double V Partners / NYX. Consume la API pública de [FakeStore API](https://fakestoreapi.com) con catálogo filtrable, carrito persistido y recomendaciones por categoría.
 
 ---
@@ -22,7 +24,11 @@ Mini eCommerce construido como prueba técnica para Double V Partners / NYX. Con
 
 ## Cómo correr localmente
 
+**Requisitos:** Node.js 18+, pnpm 8+
+
 ```bash
+git clone https://github.com/carlostajandev/nyx-ecommerce-challenge.git
+cd nyx-ecommerce-challenge
 pnpm install
 pnpm dev
 ```
