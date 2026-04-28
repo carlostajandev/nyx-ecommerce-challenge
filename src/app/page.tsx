@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useProducts } from "@/features/products/hooks";
 import type { Product } from "@/features/products/types";
 import ProductCard from "@/components/ProductCard";
+import ProductDetailModal from "@/components/ProductDetailModal";
 import Skeleton from "@/components/ui/Skeleton";
 import ErrorState from "@/components/ui/ErrorState";
 
@@ -71,8 +72,11 @@ export default function CatalogPage() {
         ))}
       </div>
 
-      {/* ProductDetailModal wired in upcoming commit */}
-      <div aria-hidden className="sr-only">{selectedProduct?.id}</div>
+      <ProductDetailModal
+        product={selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        onAddToCart={handleAddToCart}
+      />
     </main>
   );
 }
