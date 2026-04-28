@@ -3,6 +3,7 @@
 > **Demo en vivo:** [https://nyx-ecommerce-challenge.vercel.app](https://nyx-ecommerce-challenge.vercel.app)
 
 ![Catálogo de productos con filtros y búsqueda](./docs/catalog.png)
+![Modal de detalle con recomendaciones](./docs/modal.png)
 
 Mini eCommerce construido como prueba técnica para Double V Partners / NYX. Consume la API pública de [FakeStore API](https://fakestoreapi.com) con catálogo filtrable, carrito persistido y recomendaciones por categoría.
 
