@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { X, Star, ShoppingCart } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/features/products/types";
+import Recommendations from "./Recommendations";
 
 interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
   onAddToCart?: (product: Product) => void;
+  onSelect?: (product: Product) => void;
 }
 
 export default function ProductDetailModal({
   product,
   onClose,
   onAddToCart,
+  onSelect,
 }: ProductDetailModalProps) {
+  const detailsPanelRef = useRef<HTMLDivElement>(null);
   // Close on Escape key
   useEffect(() => {
     if (!product) return;
@@ -35,6 +39,11 @@ export default function ProductDetailModal({
       document.body.style.overflow = "";
     };
   }, [product]);
+
+  // Scroll details panel to top when navigating between recommendations
+  useEffect(() => {
+    detailsPanelRef.current?.scrollTo({ top: 0 });
+  }, [product?.id]);
 
   if (!product) return null;
 
@@ -75,7 +84,7 @@ export default function ProductDetailModal({
         </div>
 
         {/* Details panel */}
-        <div className="flex flex-1 flex-col gap-4 p-6">
+        <div ref={detailsPanelRef} className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
           <span className="w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-medium capitalize text-gray-500">
             {product.category}
           </span>
@@ -120,6 +129,10 @@ export default function ProductDetailModal({
               Add to cart
             </button>
           </div>
+
+          {onSelect && (
+            <Recommendations current={product} onSelect={onSelect} />
+          )}
         </div>
       </div>
     </div>

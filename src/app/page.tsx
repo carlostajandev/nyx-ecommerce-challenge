@@ -135,6 +135,7 @@ export default function CatalogPage() {
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
         onAddToCart={handleAddToCart}
+        onSelect={setSelectedProduct}
       />
     </main>
   );
