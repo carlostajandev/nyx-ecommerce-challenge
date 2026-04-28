@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useProducts } from "@/features/products/hooks";
+import { useCartStore } from "@/features/cart/store";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import type { Product } from "@/features/products/types";
 import type { Category } from "@/features/products/types";
@@ -40,6 +41,7 @@ function ProductGridSkeleton() {
 
 export default function CatalogPage() {
   const { data: products, isLoading, isError, refetch } = useProducts();
+  const addItem = useCartStore((s) => s.addItem);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeCategory, setActiveCategory] = useState<Category | "all">("all");
   const [searchInput, setSearchInput] = useState("");
@@ -70,8 +72,9 @@ export default function CatalogPage() {
     });
   }, [products, activeCategory, searchQuery]);
 
-  // Placeholder — replaced with Zustand action in Phase 3
-  function handleAddToCart(_product: Product) {}
+  function handleAddToCart(product: Product) {
+    addItem(product);
+  }
 
   if (isLoading)
     return (
