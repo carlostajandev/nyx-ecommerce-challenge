@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useProducts } from "@/features/products/hooks";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 import type { Product } from "@/features/products/types";
+import type { Category } from "@/features/products/types";
 import ProductCard from "@/components/ProductCard";
 import ProductDetailModal from "@/components/ProductDetailModal";
+import CategoryFilter from "@/components/CategoryFilter";
+import SearchBar from "@/components/SearchBar";
 import Skeleton from "@/components/ui/Skeleton";
 import ErrorState from "@/components/ui/ErrorState";
+import EmptyState from "@/components/ui/EmptyState";
 
 const SKELETON_COUNT = 12;
 
@@ -36,8 +41,36 @@ function ProductGridSkeleton() {
 export default function CatalogPage() {
   const { data: products, isLoading, isError, refetch } = useProducts();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [activeCategory, setActiveCategory] = useState<Category | "all">("all");
+  const [searchInput, setSearchInput] = useState("");
 
-  // Placeholder — will be replaced with Zustand action in Phase 3
+  // Debounce the raw input so filtering doesn't fire on every keystroke
+  const searchQuery = useDebounce(searchInput, 300);
+
+  // Derive unique categories from fetched products — no extra HTTP request
+  const categories = useMemo<Category[]>(
+    () =>
+      (
+        Array.from(new Set(products?.map((p) => p.category) ?? [])).sort() as Category[]
+      ),
+    [products],
+  );
+
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    return products.filter((p) => {
+      const matchesCategory =
+        activeCategory === "all" || p.category === activeCategory;
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        q === "" ||
+        p.title.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, activeCategory, searchQuery]);
+
+  // Placeholder — replaced with Zustand action in Phase 3
   function handleAddToCart(_product: Product) {}
 
   if (isLoading)
@@ -59,18 +92,41 @@ export default function CatalogPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      {/* SearchBar and CategoryFilter wired in upcoming commit */}
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {(products ?? []).map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            onViewDetail={setSelectedProduct}
-            onAddToCart={handleAddToCart}
-          />
-        ))}
+      {/* Toolbar */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <CategoryFilter
+          categories={categories}
+          active={activeCategory}
+          onChange={setActiveCategory}
+        />
+        <SearchBar value={searchInput} onChange={setSearchInput} />
       </div>
+
+      {filteredProducts.length === 0 ? (
+        <EmptyState
+          message={
+            searchQuery
+              ? `No results for "${searchQuery}"`
+              : "No products in this category"
+          }
+          hint={
+            searchQuery || activeCategory !== "all"
+              ? "Try clearing the search or selecting a different category."
+              : undefined
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {filteredProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onViewDetail={setSelectedProduct}
+              onAddToCart={handleAddToCart}
+            />
+          ))}
+        </div>
+      )}
 
       <ProductDetailModal
         product={selectedProduct}
