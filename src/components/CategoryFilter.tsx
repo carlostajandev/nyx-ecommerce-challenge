@@ -1,12 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { Category } from "@/features/products/types";
 
 interface CategoryFilterProps {
-  categories: Category[];
-  active: Category | "all";
-  onChange: (category: Category | "all") => void;
+  categories: string[];
+  active: string;
+  onChange: (category: string) => void;
 }
 
 export default function CategoryFilter({
@@ -14,7 +13,7 @@ export default function CategoryFilter({
   active,
   onChange,
 }: CategoryFilterProps) {
-  const options: Array<{ label: string; value: Category | "all" }> = [
+  const options = [
     { label: "All", value: "all" },
     ...categories.map((c) => ({
       label: c.charAt(0).toUpperCase() + c.slice(1),

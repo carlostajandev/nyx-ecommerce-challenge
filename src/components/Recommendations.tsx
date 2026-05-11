@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
 import Image from "next/image";
-import { useProducts } from "@/features/products/hooks";
+import { useRecommendations } from "@/features/products/hooks";
 import { useCartStore } from "@/features/cart/store";
-import { getRelatedProducts } from "@/features/recommendations/use-case";
 import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/features/products/types";
 
@@ -17,13 +15,8 @@ export default function Recommendations({
   current,
   onSelect,
 }: RecommendationsProps) {
-  const { data: allProducts } = useProducts(); // instant — already in React Query cache
+  const { data: related = [] } = useRecommendations(current.id, "hybrid");
   const addItem = useCartStore((s) => s.addItem);
-
-  const related = useMemo(
-    () => (allProducts ? getRelatedProducts(current, allProducts) : []),
-    [current, allProducts],
-  );
 
   if (related.length === 0) return null;
 
@@ -38,7 +31,6 @@ export default function Recommendations({
             key={product.id}
             className="flex items-center gap-3 rounded-xl border border-gray-100 p-2 transition-colors hover:bg-gray-50"
           >
-            {/* Thumbnail */}
             <button
               onClick={() => onSelect(product)}
               className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-50"
@@ -53,7 +45,6 @@ export default function Recommendations({
               />
             </button>
 
-            {/* Info */}
             <button
               onClick={() => onSelect(product)}
               className="min-w-0 flex-1 text-left"
@@ -66,7 +57,6 @@ export default function Recommendations({
               </p>
             </button>
 
-            {/* Quick add */}
             <button
               onClick={() => addItem(product)}
               className="shrink-0 rounded-lg bg-gray-900 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-gray-700"

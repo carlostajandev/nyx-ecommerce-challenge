@@ -1,20 +1,24 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useProducts } from "@/features/products/hooks";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { useProducts, useCategories } from "@/features/products/hooks";
 import { useCartStore } from "@/features/cart/store";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import type { Product } from "@/features/products/types";
-import type { Category } from "@/features/products/types";
+import type { SemanticSearchResponse } from "@/features/ai/types";
 import ProductCard from "@/components/ProductCard";
 import ProductDetailModal from "@/components/ProductDetailModal";
 import CategoryFilter from "@/components/CategoryFilter";
 import SearchBar from "@/components/SearchBar";
+import AiSearchBar from "@/components/AiSearchBar";
+import ChatWidget from "@/components/ChatWidget";
 import Skeleton from "@/components/ui/Skeleton";
 import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
 
-const SKELETON_COUNT = 12;
+const PAGE_SIZE = 12;
+const SKELETON_COUNT = PAGE_SIZE;
 
 function ProductGridSkeleton() {
   return (
@@ -40,50 +44,55 @@ function ProductGridSkeleton() {
 }
 
 export default function CatalogPage() {
-  const { data: products, isLoading, isError, refetch } = useProducts();
   const addItem = useCartStore((s) => s.addItem);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [activeCategory, setActiveCategory] = useState<Category | "all">("all");
+  const [activeCategory, setActiveCategory] = useState("all");
   const [searchInput, setSearchInput] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [aiResults, setAiResults] = useState<SemanticSearchResponse | null>(null);
 
-  // Debounce the raw input so filtering doesn't fire on every keystroke
-  const searchQuery = useDebounce(searchInput, 300);
+  // Debounce the text search so we don't fire on every keystroke
+  const debouncedSearch = useDebounce(searchInput, 400);
 
-  // Derive unique categories from fetched products — no extra HTTP request
-  const categories = useMemo<Category[]>(
-    () =>
-      (
-        Array.from(new Set(products?.map((p) => p.category) ?? [])).sort() as Category[]
-      ),
-    [products],
-  );
+  const { data: categories = [] } = useCategories();
 
-  const filteredProducts = useMemo(() => {
-    if (!products) return [];
-    return products.filter((p) => {
-      const matchesCategory =
-        activeCategory === "all" || p.category === activeCategory;
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        q === "" ||
-        p.title.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q);
-      return matchesCategory && matchesSearch;
-    });
-  }, [products, activeCategory, searchQuery]);
+  const { data: productsPage, isLoading, isError, refetch } = useProducts({
+    page: currentPage,
+    size: PAGE_SIZE,
+    category: activeCategory !== "all" ? activeCategory : undefined,
+    search: debouncedSearch || undefined,
+  });
 
-  function handleAddToCart(product: Product) {
-    addItem(product);
+  function handleCategoryChange(cat: string) {
+    setActiveCategory(cat);
+    setCurrentPage(0);
+    setAiResults(null);
   }
 
-  if (isLoading)
+  function handleSearchChange(value: string) {
+    setSearchInput(value);
+    setCurrentPage(0);
+    if (aiResults) setAiResults(null);
+  }
+
+  function handleAiResults(response: SemanticSearchResponse | null) {
+    setAiResults(response);
+    if (response) setCurrentPage(0);
+  }
+
+  const isAiMode = aiResults !== null;
+  const displayProducts = isAiMode
+    ? aiResults.results
+    : (productsPage?.content ?? []);
+
+  if (isLoading && !isAiMode)
     return (
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <ProductGridSkeleton />
       </main>
     );
 
-  if (isError)
+  if (isError && !isAiMode)
     return (
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <ErrorState
@@ -95,48 +104,105 @@ export default function CatalogPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      {/* Toolbar */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Toolbar: category filter + text search */}
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <CategoryFilter
           categories={categories}
           active={activeCategory}
-          onChange={setActiveCategory}
+          onChange={handleCategoryChange}
         />
-        <SearchBar value={searchInput} onChange={setSearchInput} />
+        <SearchBar value={searchInput} onChange={handleSearchChange} />
       </div>
 
-      {filteredProducts.length === 0 ? (
+      {/* AI semantic search */}
+      <div className="mb-6">
+        <AiSearchBar onResults={handleAiResults} />
+      </div>
+
+      {/* AI results context bar */}
+      {isAiMode && (
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles size={14} className="text-gray-500" />
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold">{aiResults.results.length}</span> semantic
+            results for{" "}
+            <span className="font-semibold">&ldquo;{aiResults.query}&rdquo;</span>
+          </p>
+          <span className="text-xs text-gray-400">· {aiResults.processingMs}ms</span>
+        </div>
+      )}
+
+      {displayProducts.length === 0 ? (
         <EmptyState
           message={
-            searchQuery
-              ? `No results for "${searchQuery}"`
-              : "No products in this category"
+            isAiMode
+              ? `No semantic results for "${aiResults?.query}"`
+              : searchInput
+                ? `No results for "${debouncedSearch}"`
+                : "No products in this category"
           }
           hint={
-            searchQuery || activeCategory !== "all"
+            !isAiMode && (searchInput || activeCategory !== "all")
               ? "Try clearing the search or selecting a different category."
               : undefined
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {filteredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onViewDetail={setSelectedProduct}
-              onAddToCart={handleAddToCart}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {displayProducts.map((product) => (
+              <div key={product.id} className="relative">
+                {/* Similarity score badge in AI mode */}
+                {isAiMode && aiResults.scores[String(product.id)] !== undefined && (
+                  <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    <Sparkles size={8} />
+                    {(aiResults.scores[String(product.id)] * 100).toFixed(0)}%
+                  </div>
+                )}
+                <ProductCard
+                  product={product}
+                  onViewDetail={setSelectedProduct}
+                  onAddToCart={addItem}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination — only in regular catalog mode */}
+          {!isAiMode && productsPage && productsPage.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button
+                onClick={() => setCurrentPage((p) => p - 1)}
+                disabled={productsPage.first}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {productsPage.number + 1} of {productsPage.totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => p + 1)}
+                disabled={productsPage.last}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                aria-label="Next page"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <ProductDetailModal
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
-        onAddToCart={handleAddToCart}
+        onAddToCart={addItem}
         onSelect={setSelectedProduct}
       />
+
+      <ChatWidget onSelectProduct={setSelectedProduct} />
     </main>
   );
 }

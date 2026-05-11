@@ -1,6 +1,6 @@
 import { ApiError } from "./errors";
 
-const BASE_URL = "https://fakestoreapi.com";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 const TIMEOUT_MS = 8_000;
 const MAX_RETRIES = 2;
 
@@ -34,11 +34,14 @@ async function attempt(url: string, options: RequestInit): Promise<Response> {
   const response = await fetchWithTimeout(url, options);
 
   if (!response.ok) {
-    throw new ApiError(
-      `HTTP ${response.status}: ${response.statusText}`,
-      response.status,
-      url,
-    );
+    let message = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const body = await response.clone().json();
+      if (body.message) message = body.message;
+    } catch {
+      // non-JSON error body — keep default message
+    }
+    throw new ApiError(message, response.status, url);
   }
 
   return response;
